@@ -19,6 +19,7 @@ Automatically checks for and pulls the latest versions of all installed Ollama m
 ### 2. Context Size Manager (set_max_ctx.sh)
 
 A powerful utility to optimize and manage the context window size for your Ollama models.
+Ollama per default limits context size for models and with this utility you can set it to the models trained context size. 
 
 **Features:**
 - Interactive per-model confirmation [y/N/all]
