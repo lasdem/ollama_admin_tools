@@ -1,24 +1,21 @@
 #!/bin/bash
 
 # ==============================================================================
+# set_max_ctx.sh
+#
 # A utility to manage the 'num_ctx' parameter for Ollama models. It provides
 # rich, informative output about the state before and after changes.
-#
-# Features:
-# - Interactive per-model confirmation [y/N/all].
-# - Non-interactive mode with '-y' to confirm all changes.
-# - Global context ceiling with '-m <value>' to cap memory usage.
-# - Force mode with '-f' to overwrite models that already have a num_ctx set.
-# - Single model or batch mode operation.
-# - Handles international number formats for context size.
 #
 # --- USAGE ---
 #
 # Update a SINGLE model to its native max context:
 #   ./set_max_ctx.sh llama3.3:latest
 #
-# Update a SINGLE model, capping its context at 16k:
+# Update a SINGLE model, CAPPING its context at 16k:
 #   ./set_max_ctx.sh -m 16384 llama3.3:latest
+#
+# Update a SINGLE model, SETTING its context to exactly 8k:
+#   ./set_max_ctx.sh -s 8192 llama3.3:
 #
 # Update ALL models (interactively), capping at 128k:
 #   ./set_max_ctx.sh -m 131072
@@ -28,11 +25,12 @@
 CONFIRM_ALL=false
 FORCE_UPDATE=false
 GLOBAL_MAX_CTX=""
+SPECIFIC_CTX=""
 TARGET_MODEL=""
 
 # --- Helper function for usage instructions ---
 usage() {
-    echo "ℹ️  Usage: $0 [-y] [-f] [-m <value>] [model_name]"
+    echo "ℹ️  Usage: $0 [-y] [-f] [-m <value> | -s <value>] [model_name]"
     echo
     echo "Modes:"
     echo "  Batch Mode:   If [model_name] is omitted, the script checks all models."
@@ -41,8 +39,10 @@ usage() {
     echo "Options:"
     echo "  -y, --yes          Automatically confirm all changes without prompting."
     echo "  -f, --force        Force update even if a 'num_ctx' is already set."
-    echo "  -m, --max-ctx    (Optional) Set a maximum context size to act as a cap."
-    echo "                   (Thousand separators '.' and ',' are supported)"
+    echo "  -m, --max-ctx    (Optional) Set a MAXIMUM context size to act as a cap."
+    echo "  -s, --set-ctx    (Optional) Set a SPECIFIC context size, ignoring the model's native value."
+    echo "                   (Options -m and -s cannot be used together)"
+    echo "                   (Thousand separators '.' and ',' are supported for values)"
     exit 1
 }
 
@@ -61,30 +61,43 @@ while [[ $# -gt 0 ]]; do
             if [[ -n "$2" ]]; then
                 GLOBAL_MAX_CTX=$(echo "$2" | tr -d '.,')
                 if ! [[ "$GLOBAL_MAX_CTX" =~ ^[0-9]+$ ]]; then
-                    echo "❌  Error: --max-ctx requires a valid numeric argument." >&2
-                    exit 1
+                    echo "❌  Error: --max-ctx requires a valid numeric argument." >&2; exit 1
                 fi
                 shift 2
             else
-                echo "❌  Error: --max-ctx requires an argument." >&2
-                usage
+                echo "❌  Error: --max-ctx requires an argument." >&2; usage
+            fi
+            ;;
+        -s|--set-ctx)
+            if [[ -n "$2" ]]; then
+                SPECIFIC_CTX=$(echo "$2" | tr -d '.,')
+                if ! [[ "$SPECIFIC_CTX" =~ ^[0-9]+$ ]]; then
+                    echo "❌  Error: --set-ctx requires a valid numeric argument." >&2; exit 1
+                fi
+                shift 2
+            else
+                echo "❌  Error: --set-ctx requires an argument." >&2; usage
             fi
             ;;
         -*)
-            echo "❌  Error: Unknown option '$1'" >&2
-            usage
+            echo "❌  Error: Unknown option '$1'" >&2; usage
             ;;
         *)
             if [[ -z "$TARGET_MODEL" ]]; then
                 TARGET_MODEL="$1"
                 shift
             else
-                echo "❌  Error: Only one model name can be specified." >&2
-                usage
+                echo "❌  Error: Only one model name can be specified." >&2; usage
             fi
             ;;
     esac
 done
+
+# --- Validate that -m and -s are not used together ---
+if [[ -n "$GLOBAL_MAX_CTX" && -n "$SPECIFIC_CTX" ]]; then
+    echo "❌  Error: The --max-ctx (-m) and --set-ctx (-s) options are mutually exclusive." >&2
+    usage
+fi
 
 # --- Core logic in a function ---
 update_model() {
@@ -104,7 +117,6 @@ EOL
     if [ $? -eq 0 ]; then
         echo "✅  Successfully updated '$model_name_to_update'."
         echo "ℹ️  Verifying new parameters:"
-        # Show just the parameters section for a clean verification
         ollama show "$model_name_to_update" | grep -A 10 "Parameters"
     else
         echo "❌  An error occurred while updating '$model_name_to_update'."
@@ -141,13 +153,24 @@ process_model() {
         echo "ℹ️  Could not determine a valid 'context length' for $model_name. Skipping."
         return 0
     fi
-
-    echo "ℹ️  Discovered model's native context length: $MODEL_NATIVE_CTX"
     
-    FINAL_CTX=$MODEL_NATIVE_CTX
-    if [[ -n "$GLOBAL_MAX_CTX" && "$MODEL_NATIVE_CTX" -gt "$GLOBAL_MAX_CTX" ]]; then
-        echo "⚠️  capping at $GLOBAL_MAX_CTX."
+    # Always display the discovered native context
+    echo "ℹ️  Discovered model's native context length: $MODEL_NATIVE_CTX"
+
+    local FINAL_CTX=""
+
+    if [[ -n "$SPECIFIC_CTX" ]]; then
+        # If -s is used, it takes highest priority.
+        FINAL_CTX=$SPECIFIC_CTX
+        echo "ℹ️  Setting specific context size to $FINAL_CTX as requested by --set-ctx."
+    elif [[ -n "$GLOBAL_MAX_CTX" && "$MODEL_NATIVE_CTX" -gt "$GLOBAL_MAX_CTX" ]]; then
+        # If -m is used and native context is larger, apply the cap.
         FINAL_CTX=$GLOBAL_MAX_CTX
+        echo "⚠️  Capping at $GLOBAL_MAX_CTX as requested by --max-ctx."
+    else
+        # Otherwise, use the model's native context length.
+        FINAL_CTX=$MODEL_NATIVE_CTX
+        echo "ℹ️  Using native context length of $FINAL_CTX."
     fi
 
     if [ "$CONFIRM_ALL" = false ]; then
