@@ -29,6 +29,7 @@ usage() {
     echo "  (default)          Overwrite the existing model tag."
     echo "  -a, --auto-name    Create a new model with an auto-generated tag (e.g., model:128k_num_ctx)."
     echo "  -o, --output-name  Create a new model with a specific custom name (single mode only)."
+    echo "                     (Options -a and -o are mutually exclusive)"
     echo
     echo "Context Options:"
     echo "  -m, --max-ctx      (Optional) Set a MAXIMUM context size to act as a cap."
