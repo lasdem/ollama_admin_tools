@@ -6,16 +6,6 @@
 # A powerful utility to manage the 'num_ctx' parameter for Ollama models.
 # It can overwrite existing models or create new, correctly-sized ones.
 #
-# --- USAGE ---
-#
-# Get help:
-#   ./set_max_ctx.sh --help
-#
-# Create a NEW, auto-named model (e.g., 'llama3.3:128k_num_ctx'):
-#   ./set_max_ctx.sh -a llama3.3:latest
-#
-# Create a NEW, custom-named model ('llama3.3:big'):
-#   ./set_max_ctx.sh -o llama3.3:big llama3.3:latest
 # ==============================================================================
 
 # --- Default values ---

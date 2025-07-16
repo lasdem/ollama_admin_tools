@@ -67,15 +67,41 @@ To check and update all your installed models to their latest versions:
 
 ### Managing Context Window Sizes
 
+#### Usage Examples
+
 ```bash
-# Update a single model to its native max context:
-./set_max_ctx.sh llama3.3:latest
+# Display help information:
+./set_max_ctx.sh --help
 
-# Update a single model, capping its context at 16k:
-./set_max_ctx.sh -m 16384 llama3.3:latest
+# Single Model Operations:
+./set_max_ctx.sh llama3.3:latest                              # Update using native context
+./set_max_ctx.sh -y llama3.3:latest                           # Update without confirmation prompt
+./set_max_ctx.sh -f llama3.3:latest                           # Force update even if context already set
+./set_max_ctx.sh -s 4096 llama3.3:latest                      # Set specific context size (4096)
+./set_max_ctx.sh -s 32k llama3.3:latest                       # Set specific context size (32k)
+./set_max_ctx.sh -m 8192 llama3.3:latest                      # Cap context at 8192
+./set_max_ctx.sh -m 8k llama3.3:latest                        # Cap context at 8K (equivalent to 8192)
 
-# Update ALL models (interactively), capping at 128k:
-./set_max_ctx.sh -m 131072
+# New Model Operations:
+./set_max_ctx.sh -a llama3.3:latest                           # Auto-named model with native context (e.g., 'llama3.3:128k_num_ctx')
+./set_max_ctx.sh -a -m 16k llama3.3:latest                    # Auto-named model with capped context (e.g., 'llama3.3:16k_num_ctx')
+./set_max_ctx.sh -a -s 4096 llama3.3:latest                   # Auto-named model with specific context (e.g., 'llama3.3:4k_num_ctx')
+./set_max_ctx.sh -o llama3.3:full_context llama3.3:latest     # Custom-named model with native context
+./set_max_ctx.sh -o llama3.3:large -m 32k llama3.3:latest     # Custom-named model with capped context
+./set_max_ctx.sh -o llama3.3:4k -s 4096 llama3.3:latest       # Custom-named model with specific context
+
+# Batch Operations (All Installed Models):
+./set_max_ctx.sh                                              # Interactive update of all models (native context)
+./set_max_ctx.sh -y                                           # Non-interactive update of all models (native context)
+./set_max_ctx.sh -y -f                                        # Force update all models, no confirmations
+./set_max_ctx.sh -y -m 8k                                     # Update all models, cap at 8K
+./set_max_ctx.sh -y -s 4096                                   # Update all models to exactly 4096 context
+./set_max_ctx.sh -a                                           # Create auto-named copies of all models with their native max context
+./set_max_ctx.sh -a -m 16k                                    # Create auto-named copies capped at 16K
+
+# Combined Options:
+./set_max_ctx.sh -y -f -m 32k llama3.3:latest                 # Force update with no confirmation, cap at 32K
+./set_max_ctx.sh -y -f -a -m 16k llama3.3:latest              # Create auto-named model, force, no confirmation, cap at 16K
 ```
 
 ## Examples
@@ -85,8 +111,15 @@ To check and update all your installed models to their latest versions:
 If you have a system with limited RAM but want to use the maximum practical context size:
 
 ```bash
-# Set all models to use at most 8k context
-./set_max_ctx.sh -y -m 8192
+# Set all models to use at most 8k context but keeping their original names.
+./set_max_ctx.sh -y -m 8k
+```
+
+Or create copies with new auto named models
+
+```bash
+# create new models to use at most 8k context with auto generated names.
+./set_max_ctx.sh -y -m 8k -a
 ```
 
 ### Scenario: Regular Model Updates
@@ -94,7 +127,7 @@ If you have a system with limited RAM but want to use the maximum practical cont
 Add to your crontab for weekly updates:
 
 ```bash
-0 2 * * 0 /path/to/update_all_models.sh > /path/to/update_log.txt 2>&1
+0 2 * * 0 /path/to/update_all_models.sh > /path/to/update_log.txt 2>&1 && /path/to/set_max_ctx.sh -y -m 32k -a >> /path/to/update_log.txt 2>&1
 ```
 
 ## Contributing
